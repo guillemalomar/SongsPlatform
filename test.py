@@ -7,12 +7,14 @@ import dateutil.parser
 import json
 import urllib
 import urllib2
+import web
 
 
 GET, POST = range(2)
 
 hostname = None
 port = None
+render = web.template.render('templates/')
 
 
 """
@@ -245,10 +247,12 @@ if __name__ == '__main__':
     parser.add_argument('-H', action="store", dest="hostname",
                         default="localhost", type=str)
     parser.add_argument('-P', action="store", dest="port",
-                        default=5000, type=int)
+                        default=8080, type=int)
     parser.add_argument('--add-data', action="store_true", dest="add_data",
                         help=("Insert test data (only use the first time you "
                               "run the script"), default=False)
+
+    # jsonSongs = json.loads('songs = {"song1": ("Performer1", "Song1", 600), "song2":("Performer2", "Song2", 180), "song3": ("Performer3", "Song3", 180)}')
 
     args = parser.parse_args()
     hostname = args.hostname
