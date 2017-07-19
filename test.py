@@ -82,7 +82,10 @@ def add_plays():
     added again.
     """
     for channel in plays.keys():
-        get_response("add_channel", {"name": channel}, method=POST)
+        try:
+            get_response("add_channel", {"name": channel}, method=POST)
+        except Exception as e:
+            print "e:", e
         for start, (performer, title, length) in plays[channel].iteritems():
             get_response("add_performer", {"name": performer.encode('utf8')},
                          method=POST)
@@ -96,7 +99,7 @@ def add_plays():
                           "title": title.encode('utf8'),
                           "channel": channel.encode('utf8'),
                           "start": start.isoformat(), "end": end.isoformat()},
-                         method=POST)
+                          method=POST)
 
 
 def check_channel_plays():
@@ -250,9 +253,7 @@ if __name__ == '__main__':
                         default=8080, type=int)
     parser.add_argument('--add-data', action="store_true", dest="add_data",
                         help=("Insert test data (only use the first time you "
-                              "run the script"), default=False)
-
-    # jsonSongs = json.loads('songs = {"song1": ("Performer1", "Song1", 600), "song2":("Performer2", "Song2", 180), "song3": ("Performer3", "Song3", 180)}')
+                              "run the script"), default=True)
 
     args = parser.parse_args()
     hostname = args.hostname
