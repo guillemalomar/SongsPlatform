@@ -18,6 +18,10 @@ urls = (
 
 app = web.application(urls, globals())
 
+channels = []
+performers = []
+songs = []
+plays = []
 
 class get_channel_plays:
     def GET(self):
@@ -26,22 +30,31 @@ class get_channel_plays:
 
 class add_channel:
     def POST(self):
-        print "name"
+        print "add_channel"
+        channels.append(web.input().name)
 
 
 class add_performer:
     def POST(self):
-        print "name"
+        print "add_performer"
+        performers.append(web.input().name)
 
 
 class add_song:
     def POST(self):
-        print "name"
+        print "add_song"
+        songs.append((web.input().title,
+                     web.input().performer))
 
 
 class add_play:
     def POST(self):
-        print "name"
+        print "add_play"
+        plays.append((web.input().title,
+                     web.input().performer,
+                     web.input().channel,
+                     web.input().start,
+                     web.input().end))
 
 if __name__ == "__main__":
     app = MyApplication(urls, globals())

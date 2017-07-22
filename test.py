@@ -50,7 +50,7 @@ def get_response(fct, data, method=GET):
 # performer, title, length (in seconds)
 song1 = (u"Performer1", u"Song1", 600)
 song2 = (u"Performer2", u"Song2", 180)
-song3 = (u"Pêrformer3", u"Söng3", 180)
+song3 = (u"Performer3", u"Song3", 180)
 
 # channel -> plays
 plays = {
