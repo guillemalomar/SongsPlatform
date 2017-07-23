@@ -9,7 +9,7 @@
 This client<->server application simulates the behaviour of a music database service, with different channels and songs being reproduced in them.
 
 Requirements:
- - Python2.5
+ - Python+2.5 (not tested on python3, at least the prints should be removed)
  - SQLite3: is already installed in Python +2.5, so you don't need to install it.
  - Web.py: 
     pip install web.py
@@ -22,7 +22,7 @@ To use the application, first you should start by running the server:
 
 Once the server is up (it shouldn't take more than a few seconds), you can run the testing application:
 
-    python webservice.py [-H hostname] [-P port] [--add-data]
+    python test.py [-H hostname] [-P port] [--add-data]
     
 The '--add-data' option should be used the first time, as it creates a folder named 'data', and an empty file that will be used by the SQLite database. If you already have a file from a previous execution, you can put it in that folder, and the server will adopt it as if it was his own.
 
