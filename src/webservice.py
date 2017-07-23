@@ -1,35 +1,47 @@
 #!/usr/bin/env python
+import argparse
 import web
 import json
 from datetime import datetime
 import sqlite3
 import os.path
-import io
+import errno
 
 
 class MyApplication(web.application):
-    def run(self, port=8080, *middleware):
+    def run(self, app_hostname, app_port, *middleware):
         func = self.wsgifunc(*middleware)
-        return web.httpserver.runsimple(func, ('127.0.0.1', port))
+        return web.httpserver.runsimple(func, (app_hostname, app_port))
+
+
+def initialize_db(db_file_name):
+    if not os.path.exists(os.path.dirname(db_file_name)):
+        try:
+            os.makedirs(os.path.dirname(db_file_name))
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+    if not os.path.isfile(db_file_name):
+        db_file = open(db_file_name, 'w')
+    else:
+        db_file = open(db_file_name, 'r')
+    db_file.close()
+    return sqlite3.connect(db_file_name, check_same_thread=False)
 
 urls = (
-    '/add_channel', 'add_channel',
-    '/add_performer', 'add_performer',
-    '/add_song', 'add_song',
-    '/add_play', 'add_play',
-    '/get_channel_plays', 'get_channel_plays',
-    '/get_song_plays', 'get_song_plays',
-    '/get_top', 'get_top'
+    '/add_channel', 'AddChannel',
+    '/add_performer', 'AddPerformer',
+    '/add_song', 'AddSong',
+    '/add_play', 'AddPlay',
+    '/get_channel_plays', 'GetChannelPlays',
+    '/get_song_plays', 'GetSongPlays',
+    '/get_top', 'GetTop'
 )
 
-app = web.application(urls, globals())
-if not os.path.isfile('data/dbfile.sqlite'):
-    db_file = open('data/dbfile.sqlite', 'w')
-else:
-    db_file = open('data/dbfile.sqlite', 'r')
-db = sqlite3.connect("data/dbfile.sqlite", check_same_thread=False)
+db = initialize_db('data/dbfile.sqlite')
 
-class add_channel:
+
+class AddChannel:
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -40,7 +52,7 @@ class add_channel:
         db.commit()
 
 
-class add_performer:
+class AddPerformer:
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -51,7 +63,7 @@ class add_performer:
         db.commit()
 
 
-class add_song:
+class AddSong:
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -62,7 +74,7 @@ class add_song:
         db.commit()
 
 
-class add_play:
+class AddPlay:
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -77,85 +89,122 @@ class add_play:
         db.commit()
 
 
-class get_channel_plays:
+class GetChannelPlays:
     def GET(self):
-        curr_channel = web.input().channel
-        from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
-        to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
+        errors = []
+        try:
+            curr_channel = web.input().channel
+            from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
+            to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
+        except Exception as e:
+            errors.append(str(e) + ". Not all parameters where given, or their format is incorrect.")
         result = []
         cursor = db.cursor()
-        cursor.execute('''SELECT * FROM plays''')
-        plays = cursor.fetchall()
-        for play in plays:
-            if str(play[1]) == curr_channel and \
-               datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
-               datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
-                result.append({'performer': play[3],
-                               'title': play[2],
-                               'start': play[4],
-                               'end': play[5]})
-        return json.dumps({'result': result, 'code': 0})
+        try:
+            cursor.execute('''SELECT * FROM plays''')
+            plays = cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            errors.append(str(e) + ". To load test data, run the application with option '--add-data")
+        if len(errors) == 0:
+            for play in plays:
+                if str(play[1]) == curr_channel and \
+                   datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
+                   datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
+                    result.append({'performer': play[3],
+                                   'title': play[2],
+                                   'start': play[4],
+                                   'end': play[5]})
+            return json.dumps({'result': result, 'code': 0})
+        else:
+            return json.dumps({'result': result, 'code': len(errors), 'errors': list(errors)})
 
 
-class get_song_plays:
+class GetSongPlays:
     def GET(self):
-        title = web.input().title
-        from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
-        to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
+        errors = []
+        try:
+            title = web.input().title
+            from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
+            to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
+        except Exception as e:
+            errors.append(str(e) + ". Not all parameters where given, or their format is incorrect.")
         result = []
         cursor = db.cursor()
-        cursor.execute('''SELECT * FROM plays''')
-        plays = cursor.fetchall()
-        for play in plays:
-            if str(play[2]) == title and \
-               datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
-               datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
-                result.append({'channel': play[1],
-                               'start': play[4],
-                               'end': play[5]})
-        return json.dumps({'result': result, 'code': 0})
+        try:
+            cursor.execute('''SELECT * FROM plays''')
+            plays = cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            errors.append(str(e) + ". To load test data, run the application with option '--add-data")
+        if len(errors) == 0:
+            for play in plays:
+                if str(play[2]) == title and \
+                   datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
+                   datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
+                    result.append({'channel': play[1],
+                                   'start': play[4],
+                                   'end': play[5]})
+            return json.dumps({'result': result, 'code': 0})
+        else:
+            return json.dumps({'result': result, 'code': len(errors), 'errors': list(errors)})
 
-class get_top:
+
+class GetTop:
     def GET(self):
-        curr_channels = json.loads(web.input().channels)
-        from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
-        limit = web.input().limit
+        errors = []
+        try:
+            curr_channels = json.loads(web.input().channels)
+            from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
+            limit = int(web.input().limit)
+        except Exception as e:
+            errors.append(str(e) + ". Not all parameters where given, or their format is incorrect.")
         result = []
         cursor = db.cursor()
-        cursor.execute('''SELECT * FROM plays''')
-        plays = cursor.fetchall()
-        songs_to_return = {}
-        ind = 0
-        for play in filter(lambda x: x[1] in curr_channels, plays):
-            if play[2] not in songs_to_return.keys():
-                songs_to_return[play[2]] = {str('performer'): play[3],
-                                            str('title'): play[2],
-                                            str('rank'): 0,
-                                            str('previous_rank'): None,
-                                            str('plays'): 0,
-                                            str('previous_plays'): 0}
-            if datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') < from_time:
-                songs_to_return[play[2]]['previous_plays'] += 1
-            else:
-                songs_to_return[play[2]]['plays'] += 1
-            ind += 1
-            if ind > limit:
-                break
-        filtered_songs = [(k, v['plays'], v['previous_plays']) for k, v in songs_to_return.iteritems()]
-        for ind, song in enumerate(sorted(filtered_songs,
-                                          key=lambda tup: tup[1],
-                                          reverse=True)):
-            songs_to_return[song[0]]['rank'] = ind
-        for ind, song in enumerate(sorted(filtered_songs,
-                                          key=lambda tup: tup[2],
-                                          reverse=True)):
-            songs_to_return[song[0]]['previous_rank'] = ind
-        for song in songs_to_return.values():
-            result.append(song)
-        result = sorted(result, key=lambda k: k['plays'], reverse=True)
-        return json.dumps({'result': result, 'code': 0})
+        try:
+            cursor.execute('''SELECT * FROM plays''')
+            plays = cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            errors.append(str(e) + ". To load test data, run the application with option '--add-data")
+        if len(errors) == 0:
+            songs_to_return = {}
+            for play in filter(lambda x: x[1] in curr_channels, plays):
+                if play[2] not in songs_to_return.keys():
+                    songs_to_return[play[2]] = {str('performer'): play[3],
+                                                str('title'): play[2],
+                                                str('rank'): 0,
+                                                str('previous_rank'): None,
+                                                str('plays'): 0,
+                                                str('previous_plays'): 0}
+                if datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') < from_time:
+                    songs_to_return[play[2]]['previous_plays'] += 1
+                else:
+                    songs_to_return[play[2]]['plays'] += 1
+            filtered_songs = [(k, v['plays'], v['previous_plays']) for k, v in songs_to_return.iteritems()]
+            for ind, song in enumerate(sorted(filtered_songs,
+                                              key=lambda tup: tup[1],
+                                              reverse=True)):
+                songs_to_return[song[0]]['rank'] = ind
+            for ind, song in enumerate(sorted(filtered_songs,
+                                              key=lambda tup: tup[2],
+                                              reverse=True)):
+                songs_to_return[song[0]]['previous_rank'] = ind
+            for ind, song in enumerate(songs_to_return.values()):
+                result.append(song)
+            result = sorted(result, key=lambda k: k['plays'], reverse=True)
+            return json.dumps({'result': result[0:limit], 'code': 0})
+        else:
+            return json.dumps({'result': result, 'code': len(errors), 'errors': list(errors)})
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Web Crawler')
+    parser.add_argument('-H', action="store", dest="hostname",
+                        default="localhost", type=str)
+    parser.add_argument('-P', action="store", dest="port",
+                        default=8080, type=int)
+    args = parser.parse_args()
+    
+    hostname = args.hostname
+    port = args.port
+
     app = MyApplication(urls, globals())
-    app.run()
+    app.run(hostname, port)

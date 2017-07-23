@@ -97,7 +97,7 @@ def add_plays():
                           "title": title.encode('utf8'),
                           "channel": channel.encode('utf8'),
                           "start": start.isoformat(), "end": end.isoformat()},
-                          method=POST)
+                         method=POST)
 
 
 def check_channel_plays():
@@ -121,6 +121,9 @@ def check_channel_plays():
             "start": datetime.datetime(2013, 1, 1).isoformat(),
             "end": datetime.datetime(2015, 1, 1).isoformat()
         }))
+        if 'errors' in res.keys():
+            for error in res['errors']:
+                print "error in get_channel_plays:", error
         assert(res['code'] == 0)
         channel_plays = res['result']
         for data in channel_plays:
@@ -262,8 +265,8 @@ if __name__ == '__main__':
     port = args.port
     if args.add_data:
         add_plays()
+        print "All data loaded."
     check_channel_plays()
     check_song_plays()
     check_top()
     print "Success!"
-
