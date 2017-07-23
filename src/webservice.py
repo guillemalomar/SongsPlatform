@@ -15,6 +15,7 @@ class MyApplication(web.application):
 
 
 def initialize_db(db_file_name):
+    # This method checks if the file exists
     if not os.path.exists(os.path.dirname(db_file_name)):
         try:
             os.makedirs(os.path.dirname(db_file_name))
@@ -196,15 +197,18 @@ class GetTop:
 
 
 if __name__ == "__main__":
+    # Arguments are taken from command line
     parser = argparse.ArgumentParser(description='Web Crawler')
     parser.add_argument('-H', action="store", dest="hostname",
                         default="localhost", type=str)
     parser.add_argument('-P', action="store", dest="port",
                         default=8080, type=int)
     args = parser.parse_args()
-    
+
     hostname = args.hostname
     port = args.port
 
+    # An instance of the server is created
     app = MyApplication(urls, globals())
+    # and run
     app.run(hostname, port)
