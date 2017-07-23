@@ -7,14 +7,12 @@ import dateutil.parser
 import json
 import urllib
 import urllib2
-import web
 
 
 GET, POST = range(2)
 
 hostname = None
 port = None
-render = web.template.render('templates/')
 
 
 """
@@ -242,6 +240,10 @@ def check_top():
     }))
     assert(res['code'] == 0)
     top = res['result']
+    new_top = []
+    for d in top:
+        new_top.append(dict([(str(k), v) for k, v in d.items()]))
+    top = new_top
     assert(top == get_top(datetime.datetime(2014, 1, 8), plays.keys()))
 
 
