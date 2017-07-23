@@ -255,7 +255,7 @@ if __name__ == '__main__':
                         default=8080, type=int)
     parser.add_argument('--add-data', action="store_true", dest="add_data",
                         help=("Insert test data (only use the first time you "
-                              "run the script"), default=True)
+                              "run the script"), default=False)
 
     args = parser.parse_args()
     hostname = args.hostname

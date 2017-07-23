@@ -2,7 +2,9 @@
 import web
 import json
 from datetime import datetime
-import operator
+import sqlite3
+import os.path
+import io
 
 
 class MyApplication(web.application):
@@ -21,36 +23,58 @@ urls = (
 )
 
 app = web.application(urls, globals())
-
-channels = []
-performers = []
-songs = []
-plays = []
-
+if not os.path.isfile('data/dbfile.sqlite'):
+    db_file = open('data/dbfile.sqlite', 'w')
+else:
+    db_file = open('data/dbfile.sqlite', 'r')
+db = sqlite3.connect("data/dbfile.sqlite", check_same_thread=False)
 
 class add_channel:
     def POST(self):
-        channels.append(web.input().name)
+        cursor = db.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS channels(id INTEGER PRIMARY KEY, channel_name TEXT)
+        ''')
+        cursor.execute('''INSERT INTO channels(channel_name)
+                          VALUES(?)''', (str(web.input().name),))
+        db.commit()
 
 
 class add_performer:
     def POST(self):
-        performers.append(web.input().name)
+        cursor = db.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS performers(id INTEGER PRIMARY KEY, performer_name TEXT)
+        ''')
+        cursor.execute('''INSERT INTO performers(performer_name)
+                          VALUES(?)''', (str(web.input().name),))
+        db.commit()
 
 
 class add_song:
     def POST(self):
-        songs.append((web.input().title,
-                      web.input().performer))
+        cursor = db.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS songs(id INTEGER PRIMARY KEY, song_name TEXT, song_performer TEXT)
+        ''')
+        cursor.execute('''INSERT INTO songs(song_name, song_performer)
+                          VALUES(?, ?)''', (web.input().title, web.input().performer))
+        db.commit()
 
 
 class add_play:
     def POST(self):
-        plays.append((web.input().channel,
-                      web.input().title,
-                      web.input().performer,
-                      datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S'),
-                      datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')))
+        cursor = db.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS plays(id INTEGER PRIMARY KEY,
+            channel_name TEXT, song_name TEXT, song_performer TEXT,
+            start_time DATETIME, end_time DATETIME)
+        ''')
+        cursor.execute('''INSERT INTO plays(channel_name, song_name, song_performer, start_time, end_time)
+                          VALUES(?,?,?,?,?)''', (web.input().channel, web.input().title, web.input().performer,
+                                                 datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S'),
+                                                 datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')))
+        db.commit()
 
 
 class get_channel_plays:
@@ -59,12 +83,17 @@ class get_channel_plays:
         from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
         to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
         result = []
-        for plays_info in filter(lambda x: x[0] == curr_channel, plays):
-            if plays_info[3] > from_time and plays_info[4] < to_time:
-                result.append({'performer': plays_info[2],
-                               'title': plays_info[1],
-                               'start': plays_info[3].isoformat(),
-                               'end': plays_info[4].isoformat()})
+        cursor = db.cursor()
+        cursor.execute('''SELECT * FROM plays''')
+        plays = cursor.fetchall()
+        for play in plays:
+            if str(play[1]) == curr_channel and \
+               datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
+               datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
+                result.append({'performer': play[3],
+                               'title': play[2],
+                               'start': play[4],
+                               'end': play[5]})
         return json.dumps({'result': result, 'code': 0})
 
 
@@ -74,34 +103,41 @@ class get_song_plays:
         from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
         to_time = datetime.strptime(web.input().end, '%Y-%m-%dT%H:%M:%S')
         result = []
-        for song_info in filter(lambda x: x[1] == title, plays):
-            if song_info[3] >= from_time and song_info[4] <= to_time:
-                result.append({'channel': song_info[0],
-                               'start': song_info[3].isoformat(),
-                               'end': song_info[4].isoformat()})
+        cursor = db.cursor()
+        cursor.execute('''SELECT * FROM plays''')
+        plays = cursor.fetchall()
+        for play in plays:
+            if str(play[2]) == title and \
+               datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') > from_time and \
+               datetime.strptime(str(play[5]), '%Y-%m-%d %H:%M:%S') < to_time:
+                result.append({'channel': play[1],
+                               'start': play[4],
+                               'end': play[5]})
         return json.dumps({'result': result, 'code': 0})
 
 class get_top:
     def GET(self):
         curr_channels = json.loads(web.input().channels)
-        print "channels:", channels
         from_time = datetime.strptime(web.input().start, '%Y-%m-%dT%H:%M:%S')
         limit = web.input().limit
         result = []
+        cursor = db.cursor()
+        cursor.execute('''SELECT * FROM plays''')
+        plays = cursor.fetchall()
         songs_to_return = {}
         ind = 0
-        for play_info in filter(lambda x: x[0] in curr_channels, plays):
-            if play_info[1] not in songs_to_return.keys():
-                songs_to_return[play_info[1]] = {str('performer'): play_info[2],
-                                                 str('title'): play_info[1],
-                                                 str('rank'): 0,
-                                                 str('previous_rank'): None,
-                                                 str('plays'): 0,
-                                                 str('previous_plays'): 0}
-            if play_info[3] < from_time:
-                songs_to_return[play_info[1]]['previous_plays'] += 1
+        for play in filter(lambda x: x[1] in curr_channels, plays):
+            if play[2] not in songs_to_return.keys():
+                songs_to_return[play[2]] = {str('performer'): play[3],
+                                            str('title'): play[2],
+                                            str('rank'): 0,
+                                            str('previous_rank'): None,
+                                            str('plays'): 0,
+                                            str('previous_plays'): 0}
+            if datetime.strptime(str(play[4]), '%Y-%m-%d %H:%M:%S') < from_time:
+                songs_to_return[play[2]]['previous_plays'] += 1
             else:
-                songs_to_return[play_info[1]]['plays'] += 1
+                songs_to_return[play[2]]['plays'] += 1
             ind += 1
             if ind > limit:
                 break
