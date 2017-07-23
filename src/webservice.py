@@ -9,13 +9,18 @@ import errno
 
 
 class MyApplication(web.application):
+    # This method initializes the web server on a specified hostname and port,
+    # and through a web server gateway interface
     def run(self, app_hostname, app_port, *middleware):
         func = self.wsgifunc(*middleware)
         return web.httpserver.runsimple(func, (app_hostname, app_port))
 
 
 def initialize_db(db_file_name):
-    # This method checks if the file exists
+    # This method checks if the file exists, and if not, tries to create the
+    # folder containing it, and a blank file in that path. After that, returns
+    # a SQLite database instance linked to that file. 'check_same_thread
+    # parameter needs to be set to False to avoid problems between petitions.
     if not os.path.exists(os.path.dirname(db_file_name)):
         try:
             os.makedirs(os.path.dirname(db_file_name))
@@ -29,6 +34,7 @@ def initialize_db(db_file_name):
     db_file.close()
     return sqlite3.connect(db_file_name, check_same_thread=False)
 
+# Links between urls and classes
 urls = (
     '/add_channel', 'AddChannel',
     '/add_performer', 'AddPerformer',
@@ -43,6 +49,7 @@ db = initialize_db('data/dbfile.sqlite')
 
 
 class AddChannel:
+    # This method inserts a specified channel_name into the SQLite DB
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -54,6 +61,7 @@ class AddChannel:
 
 
 class AddPerformer:
+    # This method inserts a specified performer_name into the SQLite DB
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -65,6 +73,7 @@ class AddPerformer:
 
 
 class AddSong:
+    # This method inserts a specified song name and performer into the SQLite DB
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -76,6 +85,7 @@ class AddSong:
 
 
 class AddPlay:
+    # This method inserts a specified play into the SQLite DB
     def POST(self):
         cursor = db.cursor()
         cursor.execute('''
@@ -91,6 +101,8 @@ class AddPlay:
 
 
 class GetChannelPlays:
+    # This method retrieves all songs from a specified channel that were
+    # reproduced during a specified period of time.
     def GET(self):
         errors = []
         try:
@@ -121,6 +133,8 @@ class GetChannelPlays:
 
 
 class GetSongPlays:
+    # This method retrieves all the times a song was played in any channel,
+    # during a specified period of time.
     def GET(self):
         errors = []
         try:
@@ -150,6 +164,9 @@ class GetSongPlays:
 
 
 class GetTop:
+    # This method returns a ranking with the most played songs since a
+    # specified time, in descending order. It also returns the previous
+    # rank of the song.
     def GET(self):
         errors = []
         try:
