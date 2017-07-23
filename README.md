@@ -1,4 +1,4 @@
-# TextIndexer
+# SongsPlatform
 
 *    Title: Songs Platform        
 *    Author: Guillem Nicolau Alomar Sitjes      
