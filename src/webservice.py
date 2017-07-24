@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+'''
+/***********************************************
+*    Title: Songs Platform                     *
+*    Author: Guillem Nicolau Alomar Sitjes     * 
+*    Date: July 23rd, 2017                     *
+*    Code version: 0.1                         *
+*    Availability: Public                      *
+***********************************************/
+'''
 import argparse
 import web
 import json
